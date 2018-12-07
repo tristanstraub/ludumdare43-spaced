@@ -192,18 +192,17 @@
 
 (defn process-event!
   [event]
-  ;; (match event
-  ;;        [:chsk/recv [:state/objects objects]]
-  ;;        (swap! state update :objects merge (objects-to-map objects))
+  (match event
+         [:chsk/recv [:state/objects objects]]
+         (swap! state update :objects merge (objects-to-map objects))
 
-  ;;        [:chsk/recv [:state/clear {}]]
-  ;;        (swap! state assoc :objects {})
+         [:chsk/recv [:state/clear {}]]
+         (swap! state assoc :objects {})
 
-  ;;        [:chsk/recv [:state/tombstone object-id]]
-  ;;        (swap! state update :objects dissoc (:object/id object))
+         [:chsk/recv [:state/tombstone object-id]]
+         (swap! state update :objects dissoc (:object/id object))
 
-  ;;        _ (println :nop event))
-  )
+         _ (println :nop event)))
 
 (defn update-state
   [state]
