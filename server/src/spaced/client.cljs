@@ -7,7 +7,8 @@
             [cljs.core.match :refer-macros [match]]
             [impi.core :as impi]
             [cljs.core.async :as async :refer (<! >! put! chan)]
-            [taoensso.sente  :as sente :refer (cb-success?)]))
+            [taoensso.sente  :as sente :refer (cb-success?)]
+            [taoensso.sente.packers.transit :as sente-transit]))
 
 
 (enable-console-print!)
@@ -15,6 +16,7 @@
 (let [{:keys [chsk ch-recv send-fn state]}
       (sente/make-channel-socket! "/chsk" ; Note the same path as before
                                   {:type :auto ; e/o #{:auto :ajax :ws}
+                                   :packer (sente-transit/get-transit-packer)
                                    })]
   (def chsk       chsk)
   (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
@@ -34,15 +36,7 @@
                                  :pixi.object/type :pixi.object.type/graphics
                                  :pixi.graphics/shapes
                                  (concat
-                                  (for [[_ object] (:objects app-state)
-                                        :when      (get-in object [:object/behaviours :behaviour/shoot])]
-                                    {:pixi.shape/type     :pixi.shape.type/circle
-                                     :pixi.shape/position (map /
-                                                               (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
-                                                               (repeat 25))
-                                     :pixi.circle/radius     100
-                                     :pixi.shape/fill     {:pixi.fill/color 0x777777
-                                                           :pixi.fill/alpha 0.9}})
+
                                   (for [[_ object] (:objects app-state)]
                                     (cond (get (:role/tags (:role object)) :planet)
                                           {:pixi.shape/type     :pixi.shape.type/circle
@@ -67,7 +61,16 @@
                                            :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
                                                                                     1 0x004433
                                                                                     2 0x774433)
-                                                                 :pixi.fill/alpha 0.6}})))
+                                                                 :pixi.fill/alpha 0.6}}))
+                                                                    (for [[_ object] (:objects app-state)
+                                        :when      (get-in object [:object/behaviours :behaviour/shoot])]
+                                    {:pixi.shape/type     :pixi.shape.type/circle
+                                     :pixi.shape/position (map /
+                                                               (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
+                                                               (repeat 25))
+                                     :pixi.circle/radius     100
+                                     :pixi.shape/fill     {:pixi.fill/color 0x777777
+                                                           :pixi.fill/alpha 0.9}}))
 
                                  #_ [{:pixi.shape/type :pixi.shape.type/circle
                                       :pixi.shape/position (:object/position (get (:objects app-state) 1))
@@ -180,16 +183,27 @@
           :else
           (assoc object :object/position (:movement/end movement)))))
 
+(defn objects-to-map
+  [objects]
+  (into {}
+        (map (fn [object]
+               [(:object/id object) object])
+             objects)))
+
 (defn process-event!
   [event]
-  (match event
-         [:chsk/recv [:state/object object]]
-         (swap! state assoc-in [:objects (:object/id object)]
-                object)
-         [:chsk/recv [:state/clear {}]]
-         (swap! state assoc :objects {})
+  ;; (match event
+  ;;        [:chsk/recv [:state/objects objects]]
+  ;;        (swap! state update :objects merge (objects-to-map objects))
 
-         _ (println :nop event)))
+  ;;        [:chsk/recv [:state/clear {}]]
+  ;;        (swap! state assoc :objects {})
+
+  ;;        [:chsk/recv [:state/tombstone object-id]]
+  ;;        (swap! state update :objects dissoc (:object/id object))
+
+  ;;        _ (println :nop event))
+  )
 
 (defn update-state
   [state]

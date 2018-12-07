@@ -111,16 +111,22 @@
   (= (:player/id object)
      (:player/id target)))
 
-(defn nearest-shooting-target
-  [state object]
-  (first (filter #(and (within-shooting-range? object %)
-                       (not (same-player? object %)))
-                 (sort-by-distance object (not-self object (:objects state))))))
 
 (defn has-role-tag?
   [state object tag]
   (get (:role/tags (find-object-role state object))
        tag))
+
+(defn planet?
+  [object]
+  (has-role-tag? state object :planet))
+
+(defn nearest-shooting-target
+  [state object]
+  (first (filter #(and (within-shooting-range? object %)
+                       (not (same-player? object %))
+                       (not (planet? %)))
+                 (sort-by-distance object (not-self object (:objects state))))))
 
 (defn nearest-mining-target
   [state object]
@@ -288,7 +294,7 @@
                                  [:object/behaviours :behaviour/shoot]
                                  {:behaviour/timestamp    (:timestamp state)
                                   :behaviour/shoot.target (nearest-shooting-target state object)
-                                  :behaviour/condition       action})
+                                  :behaviour/condition    action})
 
     :mine              (if (get-in object [:object/behaviours :behaviour/mine])
                          object
@@ -330,6 +336,13 @@
                     %)
                  objects))))
 
+(defn remove-object
+  [state object]
+  (update state :objects
+          (fn [objects]
+            (remove #(= (:object/id object) (:object/id %))
+                    objects))))
+
 (defn replace-objects
   [state targets]
   (reduce replace-object state targets))
@@ -343,6 +356,12 @@
                                                (remove-from-cargo hauler :copper amount)])
                                             [])
                            [])))
+
+(defn apply-global-object-behaviour
+  [state object behaviour-key behaviour-value]
+  (case behaviour-key
+    :behaviour/shoot (remove-object state (:behaviour/shoot.target behaviour-value))
+    state))
 
 (defn apply-object-role
   [state object role]
@@ -363,6 +382,15 @@
            state
            (conditions state object (find-object-role state object)))))
 
+(defn apply-global-object-behaviours
+  ([state]
+   (reduce apply-global-object-behaviours state (:objects state)))
+  ([state object]
+   (reduce (fn [state [behaviour-key behaviour-value]]
+             (apply-global-object-behaviour state object behaviour-key behaviour-value))
+           state
+           (:object/behaviours object))))
+
 (defn update-state
   [state]
   (-> state
@@ -371,24 +399,25 @@
                               (as-> object object
                                 (apply-object-role state object (find-object-role state object))
                                 (apply-object-behaviours state object)))))
-      apply-global-actions))
+      apply-global-actions
+      apply-global-object-behaviours))
 
 (defn init!
   []
   (reset! state (update-state {:timestamp 0
                                :objects   (concat (repeatedly 20 #(object! {:object/position [5000 5000]
                                                                             :object/role     :planet}))
-                                                  (repeatedly 10 #(object! {:player/id 1
+                                                  (repeatedly 100 #(object! {:player/id 1
                                                                             :object/position [(rand-int 50000)
                                                                                               (rand-int 50000)]
                                                                             :transport/range 2000
                                                                             :mining/range    50
                                                                             :object/role     :mining-scout
-                                                                            :shooting/range  200
+                                                                            :shooting/range  3000
                                                                             :cargo/capacity  1000
                                                                             :mining/speed    1}))
 
-                                                  (repeatedly 10 #(object! {:player/id 1
+                                                  (repeatedly 100 #(object! {:player/id 1
                                                                             :object/position [(rand-int 50000)
                                                                                               (rand-int 50000)]
                                                                             :object/role     :freighter
