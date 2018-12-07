@@ -51,22 +51,22 @@
 
 (def f (future
          (sim/init!)
+         (doseq [client (:ws @connected-uids)]
+           (chsk-send! (first (:ws @connected-uids)) [:state/clear {}]))
+
          (loop []
            (Thread/sleep 100)
-           (doseq [client (:ws @connected-uids)]
-             (chsk-send! (first (:ws @connected-uids)) [:state/clear @sim/state]))
-
            (let [previous (:objects @sim/state)
                  current  (:objects (sim/timestep! 100))]
 
-             (doseq [client (:ws @connected-uids)]
+             (doseq [client (:ws @connected-uids)
+                     object current]
 
-               (chsk-send! (first (:ws @connected-uids)) [:state/objects
-                                                          (map (fn [object] (assoc (select-keys object
-                                                                                                [:player/id
-                                                                                                 :object/id :object/position :cargo/items :object/behaviours])
-                                                                                   :role (sim/find-object-role @sim/state object)))
-                                                               current)]))
+               (chsk-send! (first (:ws @connected-uids)) [:state/object
+                                                          (assoc (select-keys object
+                                                                              [:player/id
+                                                                               :object/id :object/position :cargo/items :object/behaviours])
+                                                                 :role (sim/find-object-role @sim/state object))]))
 
              (doseq [client (:ws @connected-uids)
                      object (set/difference (set (map :object/id previous))

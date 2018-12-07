@@ -60,7 +60,8 @@
                                            :pixi.shape/size     [40 40]
                                            :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
                                                                                     1 0x004433
-                                                                                    2 0x774433)
+                                                                                    2 0x774433
+                                                                                    0x000000)
                                                                  :pixi.fill/alpha 0.6}}))
                                                                     (for [[_ object] (:objects app-state)
                                         :when      (get-in object [:object/behaviours :behaviour/shoot])]
@@ -193,14 +194,14 @@
 (defn process-event!
   [event]
   (match event
-         [:chsk/recv [:state/objects objects]]
-         (swap! state update :objects merge (objects-to-map objects))
+         [:chsk/recv [:state/object object]]
+         (swap! state assoc-in [:objects (:object/id object)] object)
 
          [:chsk/recv [:state/clear {}]]
          (swap! state assoc :objects {})
 
          [:chsk/recv [:state/tombstone object-id]]
-         (swap! state update :objects dissoc (:object/id object))
+         (swap! state update :objects dissoc object-id)
 
          _ (println :nop event)))
 
