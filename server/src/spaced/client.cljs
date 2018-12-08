@@ -63,7 +63,7 @@
                                                                                     2 0x774433
                                                                                     0x000000)
                                                                  :pixi.fill/alpha 0.6}}))
-                                                                    (for [[_ object] (:objects app-state)
+                                  (for [[_ object] (:objects app-state)
                                         :when      (get-in object [:object/behaviours :behaviour/shoot])]
                                     {:pixi.shape/type     :pixi.shape.type/circle
                                      :pixi.shape/position (map /

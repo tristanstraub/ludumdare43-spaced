@@ -1,4 +1,5 @@
-(ns spaced.simulation)
+(ns spaced.simulation
+  (:require [kdtree :as kdtree]))
 
 (defonce state (atom {}))
 
@@ -118,54 +119,72 @@
        tag))
 
 (defn planet?
-  [object]
+  [state object]
   (has-role-tag? state object :planet))
 
-(defn nearest-shooting-target
+(defn hauler?
   [state object]
+  (has-role-tag? state object :hauler))
+
+(defn freighter?
+  [state object]
+  (has-role-tag? state object :freighter))
+
+(defn add-to-tree
+  [state tree object]
+  (cond-> tree
+    (not (planet? state object)) (update :shooting kdtree/insert (with-meta (:object/position object) {:object object}))
+    (planet? state object) (update :mining kdtree/insert (with-meta (:object/position object) {:object object}))
+    (freighter? state object) (update :freighter kdtree/insert (with-meta (:object/position object) {:object object}))
+    (hauler? state object) (update :hauler kdtree/insert (with-meta (:object/position object) {:object object}))))
+
+(defn nearest
+  [object targets key]
+  (map (fn [v] (-> v meta :object))
+       (kdtree/nearest-neighbor (get targets key)
+                                (:object/position object)
+                                10)))
+
+(defn nearest-shooting-target
+  [state object targets]
   (first (filter #(and (within-shooting-range? object %)
-                       (not (same-player? object %))
-                       (not (planet? %)))
-                 (sort-by-distance object (not-self object (:objects state))))))
+                       (not (same-player? object %)))
+                 (sort-by-distance object (not-self object (nearest object targets :shooting))))))
 
 (defn nearest-mining-target
-  [state object]
-  (first (filter #(and (within-mining-range? object %)
-                       (has-role-tag? state % :planet))
-                 (not-self object (:objects state)))))
+  [state object targets]
+  (first (filter #(and (within-mining-range? object %))
+                 (not-self object (nearest object targets :mining)))))
 
 (defn nearest-remote-mining-target
-  [state object]
-  (first (filter #(and (within-transport-range? object %)
-                       (has-role-tag? state % :planet))
-                 (not-self object (:objects state)))))
+  [state object targets]
+  (first (filter #(and (within-transport-range? object %))
+                 (not-self object (nearest object targets :mining)))))
 
 (defn nearest-freighter
-  [state object]
+  [state object targets]
   (first (filter #(and (within-transport-range? object %)
-                       (has-role-tag? state % :freighter)
                        (same-player? object %))
-                 (sort-by-distance object (not-self object (:objects state))))))
+                 (sort-by-distance object (not-self object (nearest object targets :freighter))))))
 
 (defn nearest-hauler
-  [state object]
+  [state object targets]
   (first (filter #(and (within-collect-range? object %)
-                       (has-role-tag? state % :hauler)
                        (same-player? object %))
-                 (sort-by-distance object (not-self object (:objects state))))))
+                 (sort-by-distance object (not-self object (nearest object targets :hauler))))))
 
 (defn condition-applicable?
-  [state object condition]
+  [state object condition targets]
   (case condition
-    :within-shooting-range                  (nearest-shooting-target state object)
-    :cargo-not-full-and-within-mining-range (and (nearest-mining-target state object)
+    :within-shooting-range                  (nearest-shooting-target state object targets)
+    :cargo-not-full-and-within-mining-range (and (nearest-mining-target state object targets)
                                                  (not (cargo-full? object)))
     :cargo-full-and-nearby-freighter        (and (cargo-full? object)
-                                                 (nearest-freighter state object))
+                                                 (nearest-freighter state object targets))
     :cargo-empty-and-away                   (and (cargo-empty? object)
-                                                 (nearest-remote-mining-target state object)
-                                                 (not (nearest-mining-target state object)))
-    :hauler-nearby-and-has-cargo            (if-let [hauler (nearest-hauler state object)]
+                                                 (nearest-remote-mining-target state object targets)
+                                                 (not (nearest-mining-target state object targets)))
+    :hauler-nearby-and-has-cargo            (if-let [hauler (nearest-hauler state object targets)]
                                               (not (cargo-empty? hauler)))))
 
 (defn mark-applied-timestamp
@@ -268,32 +287,32 @@
           (keys (:object/behaviours object))))
 
 (defn conditions
-  [state object role]
-  (filter #(condition-applicable? state object (first %)) (:role/rules role)))
+  [state object role targets]
+  (filter #(condition-applicable? state object (first %) targets) (:role/rules role)))
 
 (defn disable-local-action
   [state object action]
   (case action
     :shoot             (update object :object/behaviours dissoc :behaviour/shoot)
     :mine              (update object :object/behaviours dissoc :behaviour/mine)
-    :move-to-freighter (if (= (get-in object [:object/behaviours :behaviour/transport] :behaviour/action)
+    :move-to-freighter (if (= (get-in object [:object/behaviours :behaviour/transport :behaviour/action])
                               action)
                          (update object :object/behaviours dissoc :behaviour/transport)
                          object)
-    :move-to-planet    (if (= (get-in object [:object/behaviours :behaviour/transport] :behaviour/action)
+    :move-to-planet    (if (= (get-in object [:object/behaviours :behaviour/transport :behaviour/action])
                               action)
                          (update object :object/behaviours dissoc :behaviour/transport)
                          object)
     :collect-cargo     object))
 
 (defn apply-local-action
-  [state object action]
+  [state object action targets]
 ;;  (println :timestamp (:timestamp state) :object/id (:object/id object) :role (:object/role object) :action action)
   (case action
     :shoot             (assoc-in object
                                  [:object/behaviours :behaviour/shoot]
                                  {:behaviour/timestamp    (:timestamp state)
-                                  :behaviour/shoot.target (nearest-shooting-target state object)
+                                  :behaviour/shoot.target (nearest-shooting-target state object targets)
                                   :behaviour/condition    action})
 
     :mine              (if (get-in object [:object/behaviours :behaviour/mine])
@@ -301,12 +320,12 @@
                          (assoc-in object
                                    [:object/behaviours :behaviour/mine]
                                    {:behaviour/timestamp   (:timestamp state)
-                                    :behaviour/mine.target (nearest-mining-target state object)
+                                    :behaviour/mine.target (nearest-mining-target state object targets)
                                     :behaviour/condition      action}))
 
     :move-to-freighter (if (= action (get-in object [:object/behaviours :behaviour/transport :behaviour/condition]))
                          object
-                         (if-let [target (nearest-freighter state object)]
+                         (if-let [target (nearest-freighter state object targets)]
                            (assoc-in object
                                      [:object/behaviours :behaviour/transport]
                                      {:behaviour/timestamp        (:timestamp state)
@@ -317,7 +336,7 @@
     :move-to-planet    (if (and (get-in object [:object/behaviours :behaviour/transport])
                                 (= :move-to-planet (get-in object [:object/behaviours :behaviour/transport :behaviour/condition])))
                          object
-                         (if-let [target (nearest-remote-mining-target state object)]
+                         (if-let [target (nearest-remote-mining-target state object targets)]
                            (assoc-in object
                                      [:object/behaviours :behaviour/transport]
                                      {:behaviour/timestamp        (:timestamp state)
@@ -348,9 +367,9 @@
   (reduce replace-object state targets))
 
 (defn apply-global-action
-  [state object action]
+  [state object action targets]
   (replace-objects state (case action
-                           :collect-cargo (if-let [hauler (nearest-hauler state object)]
+                           :collect-cargo (if-let [hauler (nearest-hauler state object targets)]
                                             (let [amount (get-in hauler [:cargo/items :copper])]
                                               [(add-to-cargo object :copper amount)
                                                (remove-from-cargo hauler :copper amount)])
@@ -364,23 +383,23 @@
     state))
 
 (defn apply-object-role
-  [state object role]
-  (let [applicable-conditions (set (keys (conditions state object role)))]
+  [state object role targets]
+  (let [applicable-conditions (set (keys (conditions state object role targets)))]
     (reduce (fn [object [condition action]]
               (if (get applicable-conditions condition)
-                (apply-local-action state object action)
+                (apply-local-action state object action targets)
                 (disable-local-action state object action)))
             object
             (:role/rules role))))
 
 (defn apply-global-actions
-  ([state]
-   (reduce apply-global-actions state (:objects state)))
-  ([state object]
+  ([state targets]
+   (reduce (partial apply-global-actions targets) state (:objects state)))
+  ([targets state object]
    (reduce (fn [state [condition action]]
-             (apply-global-action state object action))
+             (apply-global-action state object action targets))
            state
-           (conditions state object (find-object-role state object)))))
+           (conditions state object (find-object-role state object) targets))))
 
 (defn apply-global-object-behaviours
   ([state]
@@ -391,16 +410,24 @@
            state
            (:object/behaviours object))))
 
+(defn objects-kd-tree
+  [state objects]
+  (reduce (fn [tree object]
+            (add-to-tree state tree object))
+          nil
+          objects))
+
 (defn update-state
   [state]
-  (-> state
-      (update :objects #(for [object %]
-                          (do ;;(println (:cargo/items object))
+  (let [targets (objects-kd-tree state (:objects state))]
+    (-> state
+        (update :objects #(for [object %]
+                            (do ;;(println (:cargo/items object))
                               (as-> object object
-                                (apply-object-role state object (find-object-role state object))
+                                (apply-object-role state object (find-object-role state object) targets)
                                 (apply-object-behaviours state object)))))
-      apply-global-actions
-      apply-global-object-behaviours))
+        (apply-global-actions targets)
+        apply-global-object-behaviours)))
 
 (defn init!
   []
@@ -440,10 +467,6 @@
                                :roles     {:mining-scout role-mining-scout
                                            :freighter    role-freighter
                                            :planet       role-planet}})))
-
-(defn process!
-  []
-  (swap! state update-state))
 
 (defn timestep!
   [delta]

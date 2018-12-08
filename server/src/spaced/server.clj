@@ -49,30 +49,39 @@
   ;;  (.close @s)
   )
 
-(def f (future
-         (sim/init!)
-         (doseq [client (:ws @connected-uids)]
-           (chsk-send! (first (:ws @connected-uids)) [:state/clear {}]))
+(defn simulate!
+  []
+  (doto (Thread. (fn []
+                   (try
+                     (sim/init!)
+                     (doseq [client (:ws @connected-uids)]
+                       (chsk-send! (first (:ws @connected-uids)) [:state/clear {}]))
 
-         (loop []
-           (Thread/sleep 100)
-           (let [previous (:objects @sim/state)
-                 current  (:objects (sim/timestep! 100))]
+                     (loop []
+                       (Thread/sleep 100)
+                       (let [previous (:objects @sim/state)
+                             current  (:objects (sim/timestep! 100))]
 
-             (doseq [client (:ws @connected-uids)
-                     object current]
+                         (doseq [ ;; client (:ws @connected-uids)
+                                 object current]
 
-               (chsk-send! (first (:ws @connected-uids)) [:state/object
-                                                          (assoc (select-keys object
-                                                                              [:player/id
-                                                                               :object/id :object/position :cargo/items :object/behaviours])
-                                                                 :role (sim/find-object-role @sim/state object))]))
+                           (chsk-send! (first (:ws @connected-uids)) [:state/object
+                                                                      (assoc (select-keys object
+                                                                                          [:player/id
+                                                                                           :object/id :object/position :cargo/items :object/behaviours])
+                                                                             :role (sim/find-object-role @sim/state object))]
+                                       ;;                           {:flush? true}
+                                       ))
 
-             (doseq [client (:ws @connected-uids)
-                     object (set/difference (set (map :object/id previous))
-                                            (set (map :object/id current)))]
+                         (doseq [ ;; client (:ws @connected-uids)
+                                 object (set/difference (set (map :object/id previous))
+                                                        (set (map :object/id current)))]
 
-               (chsk-send! (first (:ws @connected-uids)) [:state/tombstone (:object/id object)])))
-           (recur))))
+                           (chsk-send! (first (:ws @connected-uids)) [:state/tombstone (:object/id object)])))
+                       (recur))
+                     (catch InterruptedException e
+                       (println e)))))
+    (.start)))
+
 #_@f
 #_ (future-cancel f)
