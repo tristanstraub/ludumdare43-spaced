@@ -432,17 +432,18 @@
   []
   (reset! state (update-state {:timestamp 0
                                :objects   (concat (repeatedly 5 #(object! {:object/position [(rand-int 50000)
-                                                                                              (rand-int 50000)]
-                                                                            :object/role     :planet}))
+                                                                                             (rand-int 50000)]
+                                                                           :object/role     :planet}))
+                                            
                                                   (repeatedly 400 #(object! {:player/id 1
-                                                                            :object/position [(rand-int 50000)
-                                                                                              (rand-int 50000)]
-                                                                            :transport/range 2000
-                                                                            :mining/range    50
-                                                                            :object/role     :mining-scout
-                                                                            :shooting/range  3000
-                                                                            :cargo/capacity  1000
-                                                                            :mining/speed    1}))
+                                                                              :object/position [(rand-int 50000)
+                                                                                                (rand-int 50000)]
+                                                                              :transport/range 2000
+                                                                              :mining/range    50
+                                                                              :object/role     :mining-scout
+                                                                              :shooting/range  3000
+                                                                              :cargo/capacity  1000
+                                                                              :mining/speed    1}))
 
                                                   (repeatedly 10 #(object! {:player/id 1
                                                                             :object/position [(rand-int 50000)
@@ -451,13 +452,13 @@
                                                                             :collect/range   50}))
 
                                                   (repeatedly 400 #(object! {:player/id 2
-                                                                            :object/position [(rand-int 50000)
-                                                                                              (rand-int 50000)]
-                                                                            :transport/range 2000
-                                                                            :mining/range    50
-                                                                            :object/role     :mining-scout
-                                                                            :cargo/capacity  1000
-                                                                            :mining/speed    1}))
+                                                                              :object/position [(rand-int 50000)
+                                                                                                (rand-int 50000)]
+                                                                              :transport/range 2000
+                                                                              :mining/range    50
+                                                                              :object/role     :mining-scout
+                                                                              :cargo/capacity  1000
+                                                                              :mining/speed    1}))
 
                                                   (repeatedly 10 #(object! {:player/id 2
                                                                             :object/position [(rand-int 50000)
