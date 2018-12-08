@@ -11,7 +11,20 @@
             [taoensso.sente.packers.transit :as sente-transit]))
 
 
+
 (enable-console-print!)
+
+(defmethod impi/update-prop! :pixi.event/pointer-down [object index _ listener]
+  (impi/replace-listener object "pointerdown" index listener))
+
+(defmethod impi/update-prop! :pixi.event/pointer-up [object index _ listener]
+  (impi/replace-listener object "pointerup" index listener))
+
+(defmethod impi/update-prop! :pixi.event/pointer-move [object index _ listener]
+  (impi/replace-listener object "pointermove" index listener))
+
+(defmethod impi/update-prop! :pixi.object/button-mode? [^js/PIXI.DisplayObject object _ _ button-mode?]
+  (set! (.-buttonMode object) button-mode?))
 
 (let [{:keys [chsk ch-recv send-fn state]}
       (sente/make-channel-socket! "/chsk" ; Note the same path as before
@@ -26,52 +39,94 @@
 
 (defn render-stage!
   [el stage-id app-state]
-  (let [[w h] [2000 1000]]
+  (let [[w h]                [2000 1000]
+        {:keys [state/drag]} app-state]
+    
     (impi/mount stage-id
                 {:pixi/renderer {:pixi.renderer/size [w h]
                                  :pixi.renderer/background-color 0xbbbbbb}
 
-                 :pixi/stage    {:impi/key :gfx
-                                 :pixi.object/position (get app-state :camera/position [0 0])
-                                 :pixi.object/type :pixi.object.type/graphics
-                                 :pixi.graphics/shapes
-                                 (concat
+                 :pixi/listeners {:pointer-down (fn [^js/PIXI.interaction.InteractionEvent e]
+                                                  (println :pointer-down)
+                                                  (let [{:keys [state/drag]} app-state
+                                                        {:keys [x y]}        @drag]
+                                                    (swap! drag
+                                                           assoc
+                                                           :mx0       (.. e -data -originalEvent -clientX)
+                                                           :my0       (.. e -data -originalEvent -clientY)
+                                                           :x0        x
+                                                           :y0        y
+                                                           :dragging? true)))
+                                  
+                                  :pointer-move (fn [^js/PIXI.interaction.InteractionEvent e]
+                                                  (let [{:keys [state/drag]} app-state]
+                                                    (when (:dragging? @drag)
+                                                      (let [{:keys [x y
+                                                                    mx0 my0
+                                                                    x0 y0]} @drag
+                                                            dmx (- mx0 (.. e -data -originalEvent -clientX))
+                                                            dmy (- my0 (.. e -data -originalEvent -clientY))]
+                                                        (swap! drag
+                                                               assoc
+                                                               :x (- x0 dmx)
+                                                               :y (- y0 dmy))))))
 
-                                  (for [[_ object] (:objects app-state)]
-                                    (cond (get (:role/tags (:role object)) :planet)
-                                          {:pixi.shape/type     :pixi.shape.type/circle
-                                           :pixi.shape/position (map / (:object/position object) (repeat 25))
-                                           :pixi.circle/radius     200
-                                           :pixi.shape/fill     {:pixi.fill/color 0x770000
-                                                                 :pixi.fill/alpha 0.6}}
+                                  :pointer-up   (fn [_]
+                                                  (let [{:keys [state/drag]} app-state]
+                                                    (swap! drag assoc :dragging? false)))}
+                 
+                 :pixi/stage    {:impi/key                :stage
+                                 :pixi.object/type        :pixi.object.type/container
+                                 :pixi.object/position    [(get @drag :x 0)
+                                                           (get @drag :y 0)] #_(get app-state :camera/position [0 0])
 
-                                          (get (:role/tags (:role object)) :freighter)
-                                          {:pixi.shape/type     :pixi.shape.type/rectangle
-                                           :pixi.shape/position (map / (:object/position object) (repeat 25))
-                                           :pixi.shape/size     [20 80]
-                                           :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
-                                                                                    1 0x004433
-                                                                                    2 0x774433)
-                                                                 :pixi.fill/alpha 0.6}}
+                                 :pixi.object/interactive?   true
+                                 :pixi.object/contains-point (constantly true)
+                                 :pixi.event/pointer-down    [:pointer-down]
+                                 :pixi.event/pointer-up      [:pointer-up]
+                                 :pixi.event/pointer-move    [:pointer-move]
+                                 
+                                 :pixi.container/children
+                                 [{:impi/key                   :gfx
+                                   :pixi.object/type           :pixi.object.type/graphics
+                                   :pixi.graphics/shapes
+                                   (concat
 
-                                          :else
-                                          {:pixi.shape/type     :pixi.shape.type/rectangle
-                                           :pixi.shape/position (map / (:object/position object) (repeat 25))
-                                           :pixi.shape/size     [40 40]
-                                           :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
-                                                                                    1 0x004433
-                                                                                    2 0x774433
-                                                                                    0x000000)
-                                                                 :pixi.fill/alpha 0.6}}))
-                                  (for [[_ object] (:objects app-state)
-                                        :when      (get-in object [:object/behaviours :behaviour/shoot])]
-                                    {:pixi.shape/type     :pixi.shape.type/circle
-                                     :pixi.shape/position (map /
-                                                               (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
-                                                               (repeat 25))
-                                     :pixi.circle/radius     100
-                                     :pixi.shape/fill     {:pixi.fill/color 0x777777
-                                                           :pixi.fill/alpha 0.9}}))}}
+                                    (for [[_ object] (:objects app-state)]
+                                      (cond (get (:role/tags (:role object)) :planet)
+                                            {:pixi.shape/type     :pixi.shape.type/circle
+                                             :pixi.shape/position (map / (:object/position object) (repeat 25))
+                                             :pixi.circle/radius     200
+                                             :pixi.shape/fill     {:pixi.fill/color 0x770000
+                                                                   :pixi.fill/alpha 0.6}}
+
+                                            (get (:role/tags (:role object)) :freighter)
+                                            {:pixi.shape/type     :pixi.shape.type/rectangle
+                                             :pixi.shape/position (map / (:object/position object) (repeat 25))
+                                             :pixi.shape/size     [20 80]
+                                             :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
+                                                                                      1 0x004433
+                                                                                      2 0x774433)
+                                                                   :pixi.fill/alpha 0.6}}
+
+                                            :else
+                                            {:pixi.shape/type     :pixi.shape.type/rectangle
+                                             :pixi.shape/position (map / (:object/position object) (repeat 25))
+                                             :pixi.shape/size     [40 40]
+                                             :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
+                                                                                      1 0x004433
+                                                                                      2 0x774433
+                                                                                      0x000000)
+                                                                   :pixi.fill/alpha 0.6}}))
+                                    (for [[_ object] (:objects app-state)
+                                          :when      (get-in object [:object/behaviours :behaviour/shoot])]
+                                      {:pixi.shape/type     :pixi.shape.type/circle
+                                       :pixi.shape/position (map /
+                                                                 (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
+                                                                 (repeat 25))
+                                       :pixi.circle/radius     100
+                                       :pixi.shape/fill     {:pixi.fill/color 0x777777
+                                                             :pixi.fill/alpha 0.9}}))}]}}
                 el)))
 
 (def impi
@@ -116,7 +171,8 @@
 
 (defonce state
   (atom {:timestamp 0
-         :objects   {}}))
+         :objects   {}
+         :state/drag      (atom nil)}))
 
 (defn update-object-state
   [state object]
