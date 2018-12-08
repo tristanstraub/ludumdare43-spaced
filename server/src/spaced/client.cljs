@@ -40,7 +40,7 @@
 (defn render-stage!
   [el stage-id app-state]
   (let [[w h]                [2000 1000]
-        {:keys [state/drag]} app-state]
+        {:keys [state/drag state/scroll]} app-state]
     
     (impi/mount stage-id
                 {:pixi/renderer {:pixi.renderer/size [w h]
@@ -79,6 +79,8 @@
                                  :pixi.object/type        :pixi.object.type/container
                                  :pixi.object/position    [(get @drag :x 0)
                                                            (get @drag :y 0)] #_(get app-state :camera/position [0 0])
+                                 :pixi.object/scale (let [s (/ 1 (+ 1 (max 0 scroll)))]
+                                                      [s s])
 
                                  :pixi.object/interactive?   true
                                  :pixi.object/contains-point (constantly true)
@@ -170,9 +172,10 @@
      (gameboard state)]))
 
 (defonce state
-  (atom {:timestamp 0
-         :objects   {}
-         :state/drag      (atom nil)}))
+  (atom {:timestamp    0
+         :objects      {}
+         :state/scroll 0
+         :state/drag   (atom nil)}))
 
 (defn update-object-state
   [state object]
@@ -240,5 +243,11 @@
 
               (recur)))
 
+  (.addEventListener (dom/getElement "app")
+                     "mousewheel"
+                     (fn [^js/WheelEvent e]
+                       (.preventDefault e)
+                       (swap! state update :state/scroll (fnil + 0) (/ (.-deltaY e) 53.0))))
+  
   (r/mount (root state)
            (dom/getElement "app")))
