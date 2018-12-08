@@ -32,7 +32,7 @@
                                  :pixi.renderer/background-color 0xbbbbbb}
 
                  :pixi/stage    {:impi/key :gfx
-                                 :pixi.object/position [50 240]
+                                 :pixi.object/position (get app-state :camera/position [0 0])
                                  :pixi.object/type :pixi.object.type/graphics
                                  :pixi.graphics/shapes
                                  (concat
