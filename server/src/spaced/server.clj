@@ -74,10 +74,10 @@
                                        ))
 
                          (doseq [ ;; client (:ws @connected-uids)
-                                 object (set/difference (set (map :object/id previous))
-                                                        (set (map :object/id current)))]
+                                 object-id (set/difference (set (map :object/id previous))
+                                                           (set (map :object/id current)))]
 
-                           (chsk-send! (first (:ws @connected-uids)) [:state/tombstone (:object/id object)])))
+                           (chsk-send! (first (:ws @connected-uids)) [:state/tombstone object-id])))
                        (recur))
                      (catch InterruptedException e
                        (println e)))))
