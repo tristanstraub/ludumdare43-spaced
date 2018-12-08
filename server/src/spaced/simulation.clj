@@ -359,8 +359,8 @@
   [state object]
   (update state :objects
           (fn [objects]
-            (remove #(= (:object/id object) (:object/id %))
-                    objects))))
+            (doall (remove #(= (:object/id object) (:object/id %))
+                           objects)))))
 
 (defn replace-objects
   [state targets]
