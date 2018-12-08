@@ -422,10 +422,9 @@
   (let [targets (objects-kd-tree state (:objects state))]
     (-> state
         (update :objects #(for [object %]
-                            (do ;;(println (:cargo/items object))
-                              (as-> object object
-                                (apply-object-role state object (find-object-role state object) targets)
-                                (apply-object-behaviours state object)))))
+                            (as-> object object
+                              (apply-object-role state object (find-object-role state object) targets)
+                              (apply-object-behaviours state object))))
         (apply-global-actions targets)
         apply-global-object-behaviours)))
 
