@@ -58,7 +58,7 @@
                        (chsk-send! (first (:ws @connected-uids)) [:state/clear {}]))
 
                      (loop []
-                       (Thread/sleep 100)
+                       (Thread/sleep 10)
                        (let [previous (:objects @sim/state)
                              current  (:objects (sim/timestep! 100))]
 
