@@ -445,13 +445,13 @@
                                                                             :cargo/capacity  1000
                                                                             :mining/speed    1}))
 
-                                                  (repeatedly 100 #(object! {:player/id 1
+                                                  (repeatedly 10 #(object! {:player/id 1
                                                                             :object/position [(rand-int 50000)
                                                                                               (rand-int 50000)]
                                                                             :object/role     :freighter
                                                                             :collect/range   50}))
 
-                                                  (repeatedly 10 #(object! {:player/id 2
+                                                  (repeatedly 400 #(object! {:player/id 2
                                                                             :object/position [(rand-int 50000)
                                                                                               (rand-int 50000)]
                                                                             :transport/range 2000
