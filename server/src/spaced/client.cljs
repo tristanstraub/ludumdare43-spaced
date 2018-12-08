@@ -71,32 +71,7 @@
                                                                (repeat 25))
                                      :pixi.circle/radius     100
                                      :pixi.shape/fill     {:pixi.fill/color 0x777777
-                                                           :pixi.fill/alpha 0.9}}))
-
-                                 #_ [{:pixi.shape/type :pixi.shape.type/circle
-                                      :pixi.shape/position (:object/position (get (:objects app-state) 1))
-                                      :pixi.circle/radius 20
-                                      :pixi.shape/line
-                                      {:pixi.line/width 4
-                                       :pixi.line/color 0x22FF11
-                                       :pixi.line/alpha 0.7}}
-                                     {:pixi.shape/type :pixi.shape.type/ellipse
-                                      :pixi.shape/position (:object/position (get (:objects app-state) 2))
-                                      :pixi.ellipse/radius [30 20]
-                                      :pixi.shape/fill {:pixi.fill/color 0xFF0000}}
-                                     {:pixi.shape/type :pixi.shape.type/polygon
-                                      :pixi.polygon/path [100 0, 160 0, 130 40, 100 40]
-                                      :pixi.shape/fill {:pixi.fill/color 0xFFFF00}}
-                                     {:pixi.shape/type :pixi.shape.type/rectangle
-                                      :pixi.shape/position [170 0]
-                                      :pixi.shape/size [50 40]
-                                      :pixi.shape/fill {:pixi.fill/color 0x004433
-                                                        :pixi.fill/alpha 0.6}}
-                                     {:pixi.shape/type :pixi.shape.type/rounded-rectangle
-                                      :pixi.shape/position [240 0]
-                                      :pixi.shape/size [50 40]
-                                      :pixi.rounded-rectangle/radius 5
-                                      :pixi.shape/fill {:pixi.fill/color 0x221155}}]}}
+                                                           :pixi.fill/alpha 0.9}}))}}
                 el)))
 
 (def impi
@@ -141,19 +116,7 @@
 
 (defonce state
   (atom {:timestamp 0
-         :objects   {}  ;; {1 {:object/id       1
-         ;;     :object/position [0 0]
-         ;;     :event/timestamp 0
-         ;;     :event/movement  {:movement/start    [0 0]
-         ;;                       :movement/end      [200 0]
-         ;;                       :movement/duration 3000}}
-         ;;  2 {:object/id       2
-         ;;     :object/position [60 20]
-         ;;     :event/timestamp 0
-         ;;     :event/movement  {:movement/start    [60 20]
-         ;;                       :movement/end      [0 0]
-         ;;                       :movement/duration 3000}}}
-         }))
+         :objects   {}}))
 
 (defn update-object-state
   [state object]
@@ -203,7 +166,7 @@
          [:chsk/recv [:state/tombstone object-id]]
          (swap! state update :objects dissoc object-id)
 
-         _ (println :nop event)))
+         _ nil))
 
 (defn update-state
   [state]
@@ -217,16 +180,9 @@
   []
   (async/go (loop []
               (let [message (async/<! ch-chsk)]
-;;                (println (:event message))
                 (process-event! (:event message)))
-;;              (swap! state assoc :events conj (second (first (rest (:event (async/<! ch-chsk))))))
-              (recur)))
 
-  ;; (async/go (loop []
-  ;;             (swap! state update :timestamp + 100)
-  ;;             (swap! state update-state)
-  ;;             (async/<! (async/timeout 100))
-  ;;             (recur)))
+              (recur)))
 
   (r/mount (root state)
            (dom/getElement "app")))
