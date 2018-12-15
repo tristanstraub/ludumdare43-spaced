@@ -41,13 +41,12 @@
   [el stage-id app-state]
   (let [[w h]                [2000 1000]
         {:keys [state/drag state/scroll]} app-state]
-    
+
     (impi/mount stage-id
                 {:pixi/renderer {:pixi.renderer/size [w h]
                                  :pixi.renderer/background-color 0xbbbbbb}
 
                  :pixi/listeners {:pointer-down (fn [^js/PIXI.interaction.InteractionEvent e]
-                                                  (println :pointer-down)
                                                   (let [{:keys [state/drag]} app-state
                                                         {:keys [x y]}        @drag]
                                                     (swap! drag
@@ -74,20 +73,21 @@
                                   :pointer-up   (fn [_]
                                                   (let [{:keys [state/drag]} app-state]
                                                     (swap! drag assoc :dragging? false)))}
-                 
-                 :pixi/stage    {:impi/key                :stage
-                                 :pixi.object/type        :pixi.object.type/container
-                                 :pixi.object/position    [(get @drag :x 0)
-                                                           (get @drag :y 0)] #_(get app-state :camera/position [0 0])
-                                 :pixi.object/scale (let [s (/ 1 (+ 1 (max 0 scroll)))]
-                                                      [s s])
+
+                 :pixi/stage    {:impi/key                   :stage
+                                 :pixi.object/type           :pixi.object.type/container
+                                 :pixi.object/position       [(get @drag :x 0)
+                                                              (get @drag :y 0)]
+
+                                 :pixi.object/scale          [(get @drag :scale-x 1)
+                                                              (get @drag :scale-y 1)]
 
                                  :pixi.object/interactive?   true
                                  :pixi.object/contains-point (constantly true)
                                  :pixi.event/pointer-down    [:pointer-down]
                                  :pixi.event/pointer-up      [:pointer-up]
                                  :pixi.event/pointer-move    [:pointer-move]
-                                 
+
                                  :pixi.container/children
                                  [{:impi/key                   :gfx
                                    :pixi.object/type           :pixi.object.type/graphics
@@ -174,7 +174,7 @@
 (defonce state
   (atom {:timestamp    0
          :objects      {}
-         :state/scroll 0
+         :state/scroll 1
          :state/drag   (atom nil)}))
 
 (defn update-object-state
@@ -235,6 +235,21 @@
                   (for [[id object] objects]
                     [id (update-object-state state object)])))))
 
+(defn zoom
+  [old-pos old-scale s x y]
+  (let [s              (if (> s 0) 1.1 0.9)
+        world-pos      [(/ (- x (old-pos 0)) (old-scale 0))
+                        (/ (- y (old-pos 1)) (old-scale 1))]
+        new-scale      [(* s (old-scale 0))
+                        (* s (old-scale 1))]
+        new-screen-pos [(+ (old-pos 0) (* (world-pos 0) (new-scale 0)))
+                        (+ (old-pos 1) (* (world-pos 1) (new-scale 1)))]
+
+        new-stage-pos  [(- (old-pos 0) (- (new-screen-pos 0) x))
+                        (- (old-pos 1) (- (new-screen-pos 1) y))]]
+    [new-stage-pos new-scale]))
+
+
 (defn ^:expose main
   []
   (async/go (loop []
@@ -247,7 +262,18 @@
                      "mousewheel"
                      (fn [^js/WheelEvent e]
                        (.preventDefault e)
-                       (swap! state update :state/scroll (fnil + 0) (/ (.-deltaY e) 53.0))))
-  
+
+                       (let [[new-stage-pos new-scale] (zoom [(get @(:state/drag @state) :x 0)
+                                                              (get @(:state/drag @state) :y 0)]
+                                                             [(get @(:state/drag @state) :scale-x 1)
+                                                              (get @(:state/drag @state) :scale-y 1)]
+                                                             (.. e -deltaY) (.. e -offsetX) (.. e -offsetY))]
+                         (swap! (:state/drag @state) (fn [drag]
+                                                       (assoc drag
+                                                              :x (new-stage-pos 0)
+                                                              :y (new-stage-pos 1)
+                                                              :scale-x (new-scale 0)
+                                                              :scale-y (new-scale 1)))))))
+
   (r/mount (root state)
            (dom/getElement "app")))
