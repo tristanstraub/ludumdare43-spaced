@@ -379,7 +379,9 @@
 (defn apply-global-object-behaviour
   [state object behaviour-key behaviour-value]
   (case behaviour-key
-    :behaviour/shoot (remove-object state (:behaviour/shoot.target behaviour-value))
+    :behaviour/shoot (if (< (rand) 0.2)
+                       (remove-object state (:behaviour/shoot.target behaviour-value))
+                       state)
     state))
 
 (defn apply-object-role
