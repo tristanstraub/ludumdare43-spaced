@@ -1,0 +1,13 @@
+{:paths   ["src" "target" "resources"]
+ :deps    {com.taoensso/sente     {:mvn/version "1.13.1"}
+           org.clojure/core.async {:mvn/version "0.4.490"}
+           org.clojure/core.match {:mvn/version "0.3.0-alpha5"}
+           
+           rum                             {:mvn/version "0.11.3"}
+           com.taoensso/sente              {:mvn/version "1.13.1"}
+           org.clojure/core.async          {:mvn/version "0.4.490"}
+           impi                            {:mvn/version "0.0.11-SNAPSHOT"}}
+
+ :aliases {:client {:extra-deps {com.bhauman/figwheel-main       {:mvn/version "0.1.9"}
+                                 com.bhauman/rebel-readline-cljs {:mvn/version "0.1.4"}}
+                    :main-opts  ["-m" "figwheel.main" "-b" "dev" "-r"]}}}

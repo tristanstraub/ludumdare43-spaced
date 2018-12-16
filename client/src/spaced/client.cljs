@@ -42,22 +42,27 @@
 
 (defn brighten
   [color]
-  (+ color 0x707070))
+  
+  (+ color 0x606060))
 
 (defonce stars
-  (for [i (range 300)]
+  (for [i (range 3000)]
     {:pixi.shape/type     :pixi.shape.type/rectangle
-     :pixi.shape/position [(rand-int 20000)
-                           (rand-int 20000)]
-     :pixi.shape/size     [20 20]
+     :pixi.shape/position [(rand-int 200000)
+                           (rand-int 200000)]
+     :pixi.shape/size     [40 40]
      :pixi.shape/fill     {:pixi.fill/color 0xffffff
                            :pixi.fill/alpha 1}}))
 
 (defn render-stage!
   [el stage-id app-state]
-  (let [[w h]                [2000 1000]
+  (let [[w h]                [(:width app-state)
+                              (:height app-state)]
         {:keys [state/drag state/scroll]} app-state]
 
+    (println :planets (count (filter (fn [[_ object]] (get (:role/tags (:role object)) :planet))
+                                     (:objects app-state))))
+    
     (impi/mount stage-id
                 {:pixi/renderer {:pixi.renderer/size [w h]
                                  :pixi.renderer/background-color 0x000000}
@@ -105,25 +110,29 @@
                                  :pixi.event/pointer-move    [:pointer-move]
 
                                  :pixi.container/children
-                                 [{:impi/key                   :gfx
+                                 [ {:impi/key             :stars
+                                   :pixi.object/type     :pixi.object.type/graphics
+                                   :pixi.graphics/shapes stars}
+
+                                  {:impi/key                   :gfx
                                    :pixi.object/type           :pixi.object.type/graphics
                                    :pixi.graphics/shapes
                                    (concat
 
-                                    stars
+                                    
                                     (for [[_ object] (:objects app-state)]
                                       (cond (get (:role/tags (:role object)) :planet)
                                             {:pixi.shape/type     :pixi.shape.type/circle
-                                             :pixi.shape/position (map / (:object/position object) (repeat 25))
-                                             :pixi.circle/radius     200
+                                             :pixi.shape/position (:object/position object)
+                                             :pixi.circle/radius     3000
                                              :pixi.shape/fill     {:pixi.fill/color (brighten 0x770000)
                                                                    :pixi.fill/alpha 1}
                                              :pixi.object/zorder  -100}
 
                                             (get (:role/tags (:role object)) :freighter)
                                             {:pixi.shape/type     :pixi.shape.type/rectangle
-                                             :pixi.shape/position (map / (:object/position object) (repeat 25))
-                                             :pixi.shape/size     [40 160]
+                                             :pixi.shape/position (:object/position object) 
+                                             :pixi.shape/size     [80 320]
                                              :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
                                                                                       1 (brighten 0x004499)
                                                                                       2 (brighten 0x774499))
@@ -131,8 +140,8 @@
 
                                             :else
                                             {:pixi.shape/type     :pixi.shape.type/rectangle
-                                             :pixi.shape/position (map / (:object/position object) (repeat 25))
-                                             :pixi.shape/size     [40 40]
+                                             :pixi.shape/position (:object/position object) 
+                                             :pixi.shape/size     [80 80]
                                              :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
                                                                                       1 (brighten 0x004433)
                                                                                       2 (brighten 0x774433)
@@ -142,9 +151,8 @@
                                     (for [[_ object] (:objects app-state)
                                           :when      (get-in object [:object/behaviours :behaviour/shoot])]
                                       {:pixi.shape/type     :pixi.shape.type/circle
-                                       :pixi.shape/position (map /
-                                                                 (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
-                                                                 (repeat 25))
+                                       :pixi.shape/position (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
+                                       
                                        :pixi.circle/radius     100
                                        :pixi.shape/fill     {:pixi.fill/color 0x777777
                                                              :pixi.fill/alpha 1}}))}]}}
@@ -170,16 +178,17 @@
 (r/defc object-list
   [objects]
   [:div {:style {:width "800px" :height "100px" :right 0 :top 0 :position "absolute"}}
-   [:table
-    (for [[_ object] objects
-          :when (not (empty? (:cargo/items object)))]
-      [:tr
-       [:td (:object/id object)]
-;;       [:td (prn-str (get-in object [:object/behaviours :behaviour/shoot]))]
-       [:td (prn-str (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target]))]
-;;       [:td (:object/position object)]
-;;       [:td (prn-str (:role object))]
-       [:td (prn-str (:cargo/items object))]])]])
+;;    [:table
+;;     (for [[_ object] objects
+;;           :when (not (empty? (:cargo/items object)))]
+;;       [:tr
+;;        [:td (:object/id object)]
+;; ;;       [:td (prn-str (get-in object [:object/behaviours :behaviour/shoot]))]
+;;        [:td (prn-str (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target]))]
+;; ;;       [:td (:object/position object)]
+;; ;;       [:td (prn-str (:role object))]
+;;        [:td (prn-str (:cargo/items object))]])]
+   ])
 
 (r/defc root < r/reactive
   [state]
@@ -196,8 +205,8 @@
          :state/scroll 1
          :state/drag   (atom {:x 0
                               :y 0
-                              :scale-x 0.05
-                              :scale-y 0.05})}))
+                              :scale-x 0.02
+                              :scale-y 0.02})}))
 
 (defn update-object-state
   [state object]
@@ -241,6 +250,9 @@
          [:chsk/recv [:state/object object]]
          (swap! state assoc-in [:objects (:object/id object)] object)
 
+         [:chsk/recv [:state/objects objects]]
+         (swap! state (fn [state] (update state :objects merge (objects-to-map objects))))
+
          [:chsk/recv [:state/clear {}]]
          (swap! state assoc :objects {})
 
@@ -274,28 +286,34 @@
 
 (defn ^:expose main
   []
-  (async/go (loop []
-              (let [message (async/<! ch-chsk)]
-                (process-event! (:event message)))
+  (let [size (dom/getViewportSize)
+        w (.-width size)
+        h (.-height size) ]
 
-              (recur)))
+    (swap! state assoc :width w :height h)
+    
+    (async/go (loop []
+                (let [message (async/<! ch-chsk)]
+                  (process-event! (:event message)))
 
-  (.addEventListener (dom/getElement "app")
-                     "mousewheel"
-                     (fn [^js/WheelEvent e]
-                       (.preventDefault e)
+                (recur)))
 
-                       (let [[new-stage-pos new-scale] (zoom [(get @(:state/drag @state) :x 0)
-                                                              (get @(:state/drag @state) :y 0)]
-                                                             [(get @(:state/drag @state) :scale-x 1)
-                                                              (get @(:state/drag @state) :scale-y 1)]
-                                                             (.. e -deltaY) (.. e -offsetX) (.. e -offsetY))]
-                         (swap! (:state/drag @state) (fn [drag]
-                                                       (assoc drag
-                                                              :x (new-stage-pos 0)
-                                                              :y (new-stage-pos 1)
-                                                              :scale-x (new-scale 0)
-                                                              :scale-y (new-scale 1)))))))
+    (.addEventListener (dom/getElement "app")
+                       "mousewheel"
+                       (fn [^js/WheelEvent e]
+                         (.preventDefault e)
 
-  (r/mount (root state)
-           (dom/getElement "app")))
+                         (let [[new-stage-pos new-scale] (zoom [(get @(:state/drag @state) :x 0)
+                                                                (get @(:state/drag @state) :y 0)]
+                                                               [(get @(:state/drag @state) :scale-x 1)
+                                                                (get @(:state/drag @state) :scale-y 1)]
+                                                               (- (.. e -deltaY)) (.. e -offsetX) (.. e -offsetY))]
+                           (swap! (:state/drag @state) (fn [drag]
+                                                         (assoc drag
+                                                                :x (new-stage-pos 0)
+                                                                :y (new-stage-pos 1)
+                                                                :scale-x (new-scale 0)
+                                                                :scale-y (new-scale 1)))))))
+
+    (r/mount (root state)
+             (dom/getElement "app"))))
