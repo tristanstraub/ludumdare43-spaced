@@ -26,6 +26,9 @@
 (defmethod impi/update-prop! :pixi.object/button-mode? [^js/PIXI.DisplayObject object _ _ button-mode?]
   (set! (.-buttonMode object) button-mode?))
 
+(defmethod impi/update-prop! :pixi.object/zorder [^js/PIXI.DisplayObject object _ _ z-order]
+  (set! (.-zOrder object) z-order))
+
 (let [{:keys [chsk ch-recv send-fn state]}
       (sente/make-channel-socket! "/chsk" ; Note the same path as before
                                   {:type :auto ; e/o #{:auto :ajax :ws}
@@ -37,6 +40,19 @@
   (def chsk-state state)   ; Watchable, read-only atom
   )
 
+(defn brighten
+  [color]
+  (+ color 0x707070))
+
+(defonce stars
+  (for [i (range 300)]
+    {:pixi.shape/type     :pixi.shape.type/rectangle
+     :pixi.shape/position [(rand-int 20000)
+                           (rand-int 20000)]
+     :pixi.shape/size     [20 20]
+     :pixi.shape/fill     {:pixi.fill/color 0xffffff
+                           :pixi.fill/alpha 1}}))
+
 (defn render-stage!
   [el stage-id app-state]
   (let [[w h]                [2000 1000]
@@ -44,7 +60,7 @@
 
     (impi/mount stage-id
                 {:pixi/renderer {:pixi.renderer/size [w h]
-                                 :pixi.renderer/background-color 0xbbbbbb}
+                                 :pixi.renderer/background-color 0x000000}
 
                  :pixi/listeners {:pointer-down (fn [^js/PIXI.interaction.InteractionEvent e]
                                                   (let [{:keys [state/drag]} app-state
@@ -56,7 +72,7 @@
                                                            :x0        x
                                                            :y0        y
                                                            :dragging? true)))
-                                  
+
                                   :pointer-move (fn [^js/PIXI.interaction.InteractionEvent e]
                                                   (let [{:keys [state/drag]} app-state]
                                                     (when (:dragging? @drag)
@@ -94,32 +110,35 @@
                                    :pixi.graphics/shapes
                                    (concat
 
+                                    stars
                                     (for [[_ object] (:objects app-state)]
                                       (cond (get (:role/tags (:role object)) :planet)
                                             {:pixi.shape/type     :pixi.shape.type/circle
                                              :pixi.shape/position (map / (:object/position object) (repeat 25))
                                              :pixi.circle/radius     200
-                                             :pixi.shape/fill     {:pixi.fill/color 0x770000
-                                                                   :pixi.fill/alpha 0.6}}
+                                             :pixi.shape/fill     {:pixi.fill/color (brighten 0x770000)
+                                                                   :pixi.fill/alpha 1}
+                                             :pixi.object/zorder  -100}
 
                                             (get (:role/tags (:role object)) :freighter)
                                             {:pixi.shape/type     :pixi.shape.type/rectangle
                                              :pixi.shape/position (map / (:object/position object) (repeat 25))
-                                             :pixi.shape/size     [20 80]
+                                             :pixi.shape/size     [40 160]
                                              :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
-                                                                                      1 0x004433
-                                                                                      2 0x774433)
-                                                                   :pixi.fill/alpha 0.6}}
+                                                                                      1 (brighten 0x004499)
+                                                                                      2 (brighten 0x774499))
+                                                                   :pixi.fill/alpha 1}}
 
                                             :else
                                             {:pixi.shape/type     :pixi.shape.type/rectangle
                                              :pixi.shape/position (map / (:object/position object) (repeat 25))
                                              :pixi.shape/size     [40 40]
                                              :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
-                                                                                      1 0x004433
-                                                                                      2 0x774433
+                                                                                      1 (brighten 0x004433)
+                                                                                      2 (brighten 0x774433)
                                                                                       0x000000)
-                                                                   :pixi.fill/alpha 0.6}}))
+                                                                   :pixi.fill/alpha 1}
+                                             :pixi.object/zorder 100}))
                                     (for [[_ object] (:objects app-state)
                                           :when      (get-in object [:object/behaviours :behaviour/shoot])]
                                       {:pixi.shape/type     :pixi.shape.type/circle
@@ -128,7 +147,7 @@
                                                                  (repeat 25))
                                        :pixi.circle/radius     100
                                        :pixi.shape/fill     {:pixi.fill/color 0x777777
-                                                             :pixi.fill/alpha 0.9}}))}]}}
+                                                             :pixi.fill/alpha 1}}))}]}}
                 el)))
 
 (def impi
@@ -175,7 +194,10 @@
   (atom {:timestamp    0
          :objects      {}
          :state/scroll 1
-         :state/drag   (atom nil)}))
+         :state/drag   (atom {:x 0
+                              :y 0
+                              :scale-x 0.05
+                              :scale-y 0.05})}))
 
 (defn update-object-state
   [state object]
