@@ -1,15 +1,17 @@
 {:paths   ["src" "target" "resources"]
- :deps    {com.taoensso/sente     {:mvn/version "1.13.1"}
-           org.clojure/core.async {:mvn/version "0.4.490"}
-           org.clojure/core.match {:mvn/version "0.3.0-alpha5"}
+ :deps    {com.taoensso/sente                        {:mvn/version "1.13.1"}
+           org.clojure/core.async                    {:mvn/version "0.4.490"}
+           org.clojure/core.match                    {:mvn/version "0.3.0-alpha5"}
            com.troy-west/thimble-all                 {:mvn/version "0.1.11"}
-           org.apache.kafka/kafka-streams            {:mvn/version "1.1.0"}
-           org.apache.kafka/kafka-streams-test-utils {:mvn/version "1.1.0"}
+           org.apache.kafka/kafka-streams            {:mvn/version "2.1.0"}
+           org.apache.kafka/kafka-streams-test-utils {:mvn/version "2.1.0"}
            ch.qos.logback/logback-classic            {:mvn/version "1.1.8"}
-
+           
            aleph                                     {:mvn/version "0.4.6"}
            clj-kdtree                                {:mvn/version "1.2.0"}
            metosin/reitit                            {:mvn/version "0.2.9"}
            metosin/reitit-ring                       {:mvn/version "0.2.9"}
            ring-cors                                 {:mvn/version "0.1.10"}
-           ring                                      {:mvn/version "1.7.1"}}}
+           ring                                      {:mvn/version "1.7.1"}}
+
+ :aliases {:server {}}}
