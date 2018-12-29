@@ -110,28 +110,28 @@
                                  :pixi.event/pointer-move    [:pointer-move]
 
                                  :pixi.container/children
-                                 [ {:impi/key             :stars
-                                   :pixi.object/type     :pixi.object.type/graphics
-                                   :pixi.graphics/shapes stars}
+                                 [ ;; {:impi/key             :stars
+                                   ;; :pixi.object/type     :pixi.object.type/graphics
+                                   ;; :pixi.graphics/shapes stars}
 
                                   {:impi/key                   :gfx
                                    :pixi.object/type           :pixi.object.type/graphics
                                    :pixi.graphics/shapes
                                    (concat
 
-                                    
+
                                     (for [[_ object] (:objects app-state)]
                                       (cond (get (:role/tags (:role object)) :planet)
                                             {:pixi.shape/type     :pixi.shape.type/circle
                                              :pixi.shape/position (:object/position object)
-                                             :pixi.circle/radius     3000
+                                             :pixi.circle/radius     100 #_3000
                                              :pixi.shape/fill     {:pixi.fill/color (brighten 0x770000)
                                                                    :pixi.fill/alpha 1}
                                              :pixi.object/zorder  -100}
 
                                             (get (:role/tags (:role object)) :freighter)
                                             {:pixi.shape/type     :pixi.shape.type/rectangle
-                                             :pixi.shape/position (:object/position object) 
+                                             :pixi.shape/position (:object/position object)
                                              :pixi.shape/size     [80 320]
                                              :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
                                                                                       1 (brighten 0x004499)
