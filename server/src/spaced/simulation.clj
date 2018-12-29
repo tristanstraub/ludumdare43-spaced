@@ -423,61 +423,88 @@
   [state]
   (let [targets (objects-kd-tree state (:objects state))]
     (-> state
-        (update :objects #(for [object %]
+        (update :objects #(for [object %
+                                :when (not (:object/inactive? object))]
                             (as-> object object
                               (apply-object-role state object (find-object-role state object) targets)
                               (apply-object-behaviours state object))))
         (apply-global-actions targets)
         apply-global-object-behaviours)))
 
+(def roles {:mining-scout role-mining-scout
+            :freighter    role-freighter
+            :planet       role-planet})
+
+(defn test-objects
+  []
+  [(object! {:object/position [10100 10000]
+             :object/role     :planet})
+   (object! {:player/id 1
+             :object/position [6000 10000]
+             :transport/range 2000
+             :mining/range    50
+             :object/role     :mining-scout
+             :shooting/range  1000
+             :cargo/capacity  1000
+             :mining/speed    1})
+   #_(object! {:player/id 1
+             :object/position [15100 10000]
+             :object/role     :freighter
+             :collect/range   50})])
+
+(defn initial-objects
+  []
+  (concat (repeatedly 5 #(object! {:object/position [(rand-int 50000)
+                                                     (rand-int 50000)]
+                                   :object/role     :planet}))
+
+          (repeatedly 400 #(object! {:player/id 1
+                                     :object/position [(rand-int 50000)
+                                                       (rand-int 50000)]
+                                     :transport/range 2000
+                                     :mining/range    50
+                                     :object/role     :mining-scout
+                                     :shooting/range  1000
+                                     :cargo/capacity  1000
+                                     :mining/speed    1}))
+
+          (repeatedly 10 #(object! {:player/id 1
+                                    :object/position [(rand-int 50000)
+                                                      (rand-int 50000)]
+                                    :object/role     :freighter
+                                    :collect/range   50}))
+
+          (repeatedly 400 #(object! {:player/id       2
+                                     :object/position [(rand-int 50000)
+                                                       (rand-int 50000)]
+                                     :transport/range 2000
+                                     :mining/range    50
+                                     :shooting/range  1000
+                                     :object/role     :mining-scout
+                                     :cargo/capacity  1000
+                                     :mining/speed    1}))
+
+          (repeatedly 10 #(object! {:player/id 2
+                                    :object/position [(rand-int 50000)
+                                                      (rand-int 50000)]
+                                    :object/role     :freighter
+                                    :collect/range   50}))))
+
 (defn init!
   []
   (reset! state (update-state {:timestamp 0
-                               :objects   (concat (repeatedly 5 #(object! {:object/position [(rand-int 50000)
-                                                                                             (rand-int 50000)]
-                                                                           :object/role     :planet}))
-                                            
-                                                  (repeatedly 400 #(object! {:player/id 1
-                                                                             :object/position [(rand-int 50000)
-                                                                                               (rand-int 50000)]
-                                                                             :transport/range 2000
-                                                                             :mining/range    50
-                                                                             :object/role     :mining-scout
-                                                                             :shooting/range  1000
-                                                                             :cargo/capacity  1000
-                                                                             :mining/speed    1}))
+                               :objects   (initial-objects)
+                               :roles     roles})))
 
-                                                  (repeatedly 10 #(object! {:player/id 1
-                                                                            :object/position [(rand-int 50000)
-                                                                                              (rand-int 50000)]
-                                                                            :object/role     :freighter
-                                                                            :collect/range   50}))
-
-                                                  (repeatedly 400 #(object! {:player/id       2
-                                                                             :object/position [(rand-int 50000)
-                                                                                               (rand-int 50000)]
-                                                                             :transport/range 2000
-                                                                             :mining/range    50
-                                                                             :shooting/range  1000
-                                                                             :object/role     :mining-scout
-                                                                             :cargo/capacity  1000
-                                                                             :mining/speed    1}))
-
-                                                  (repeatedly 10 #(object! {:player/id 2
-                                                                            :object/position [(rand-int 50000)
-                                                                                              (rand-int 50000)]
-                                                                            :object/role     :freighter
-                                                                            :collect/range   50})))
-                               :roles     {:mining-scout role-mining-scout
-                                           :freighter    role-freighter
-                                           :planet       role-planet}})))
+(defn timestep
+  [state delta]
+  (-> state
+      (update :timestamp + delta)
+      update-state))
 
 (defn timestep!
   [delta]
-  (swap! state (fn [state]
-                 (-> state
-                     (update :timestamp + delta)
-                     update-state))))
+  (swap! state timestep delta))
 
 (comment
   (init!)

@@ -40,6 +40,10 @@
 (def transit-deserializer TransitDeserializer)
 (def transit-serdes TransitSerdes)
 
+(defn transit-serdes*
+  []
+  (TransitSerdes.))
+
 (defn transit-serializer*
   []
   (TransitSerializer.))

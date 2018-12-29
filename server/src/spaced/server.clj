@@ -4,10 +4,11 @@
             [reitit.ring :as ring]
             ring.middleware.keyword-params
             ring.middleware.params
+            [spaced.distributed-kd-tree :as distributed-kd-tree]
+            [spaced.simulation :as sim]
             [taoensso.sente :as sente]
-            [taoensso.sente.server-adapters.aleph :refer [get-sch-adapter]]
             [taoensso.sente.packers.transit :as sente-transit]
-            [spaced.simulation :as sim]))
+            [taoensso.sente.server-adapters.aleph :refer [get-sch-adapter]]))
 
 (let [{:keys [ch-recv send-fn connected-uids
               ajax-post-fn ajax-get-or-ws-handshake-fn]}
@@ -52,45 +53,49 @@
 (defn simulate!
   []
   (doto (Thread. (fn []
-                   (try
-                     (sim/init!)
-                     (doseq [client (:ws @connected-uids)]
-                       (chsk-send! (first (:ws @connected-uids)) [:state/clear {}]))
+                   (with-open [consumer (distributed-kd-tree/objects-consumer)]
+                     (try
 
-                     (loop []
-                       (Thread/sleep 100)
-                       (let [previous (:objects @sim/state)
-                             current  (:objects (sim/timestep! 100))]
+                       (sim/init!)
+                       (doseq [client (:ws @connected-uids)]
+                         (chsk-send! (first (:ws @connected-uids)) [:state/clear {}]))
 
-                         (chsk-send! (first (:ws @connected-uids))
-                                     [:state/objects
-                                      (map (fn [object]
-                                             (assoc (select-keys object
-                                                                 [:player/id
-                                                                  :object/id :object/position :cargo/items :object/behaviours])
-                                                    :role (sim/find-object-role @sim/state object)))
-                                           current)])
+                       (loop []
+                         (Thread/sleep 100)
+                         (let [previous (:objects @sim/state)
+                               current  (distributed-kd-tree/objects consumer)
+                               ;; (:objects (sim/timestep! 100))
+                               ]
 
-                         #_ (doseq [ ;; client (:ws @connected-uids)
-                                 object current]
-                           (when (sim/planet?  @sim/state object)
-                             (println :planet? (sim/planet? @sim/state object) (:object/id object)))
-                           (chsk-send! (first (:ws @connected-uids)) [:state/object
-                                                                      (assoc (select-keys object
-                                                                                          [:player/id
-                                                                                           :object/id :object/position :cargo/items :object/behaviours])
-                                                                             :role (sim/find-object-role @sim/state object))]
-                                       ;;                           {:flush? true}
-                                       ))
+                           (chsk-send! (first (:ws @connected-uids))
+                                       [:state/objects
+                                        (map (fn [object]
+                                               (assoc (select-keys object
+                                                                   [:player/id
+                                                                    :object/id :object/position :cargo/items :object/behaviours])
+                                                      :role (sim/find-object-role @sim/state object)))
+                                             current)])
 
-                         (doseq [ ;; client (:ws @connected-uids)
-                                 object-id (set/difference (set (map :object/id previous))
-                                                           (set (map :object/id current)))]
+                           #_ (doseq [ ;; client (:ws @connected-uids)
+                                      object current]
+                                (when (sim/planet?  @sim/state object)
+                                  (println :planet? (sim/planet? @sim/state object) (:object/id object)))
+                                (chsk-send! (first (:ws @connected-uids)) [:state/object
+                                                                           (assoc (select-keys object
+                                                                                               [:player/id
+                                                                                                :object/id :object/position :cargo/items :object/behaviours])
+                                                                                  :role (sim/find-object-role @sim/state object))]
+                                            ;;                           {:flush? true}
+                                            ))
 
-                           (chsk-send! (first (:ws @connected-uids)) [:state/tombstone object-id])))
-                       (recur))
-                     (catch InterruptedException e
-                       (println e)))))
+                           #_(doseq [ ;; client (:ws @connected-uids)
+                                   object-id (set/difference (set (map :object/id previous))
+                                                             (set (map :object/id current)))]
+
+                             (chsk-send! (first (:ws @connected-uids)) [:state/tombstone object-id])))
+                         (recur))
+                       (catch InterruptedException e
+                         (println e))))))
     (.start)))
 
 #_@f
