@@ -50,6 +50,25 @@
   ;;  (.close @s)
   )
 
+(defn update-object-store
+  [objects current]
+  (reduce (fn [objects object]
+            (cond (:object/tombstone? (get objects (:object/id object)))
+                  objects
+
+                  (:object/tombstone? object)
+                  (assoc objects (:object/id object) object)
+                  
+                  (or (not (get objects (:object/id object)))
+                      (> (:timestamp object)
+                         (:timestamp (get objects (:object/id object)))))
+                  (assoc objects (:object/id object) object)
+                  
+                  :else
+                  objects))
+          objects
+          current))
+
 (defn simulate!
   []
   (doto (Thread. (fn []
@@ -60,12 +79,11 @@
                        (doseq [client (:ws @connected-uids)]
                          (chsk-send! (first (:ws @connected-uids)) [:state/clear {}]))
 
-                       (loop []
-                         (Thread/sleep 100)
+                       (loop [objects {}]
                          (let [previous (:objects @sim/state)
                                current  (distributed-kd-tree/objects consumer)
                                ;; (:objects (sim/timestep! 100))
-                               ]
+                               objects (update-object-store objects current)]
 
                            (chsk-send! (first (:ws @connected-uids))
                                        [:state/objects
@@ -74,7 +92,7 @@
                                                                    [:player/id
                                                                     :object/id :object/position :cargo/items :object/behaviours])
                                                       :role (sim/find-object-role @sim/state object)))
-                                             current)])
+                                             (remove :object/tombstone? (vals objects)))])
 
                            #_ (doseq [ ;; client (:ws @connected-uids)
                                       object current]
@@ -87,13 +105,13 @@
                                                                                   :role (sim/find-object-role @sim/state object))]
                                             ;;                           {:flush? true}
                                             ))
+                           
+                           (doseq [ ;; client (:ws @connected-uids)
+                                     object-id (map :object/id (filter :object/tombstone? current))]
 
-                           #_(doseq [ ;; client (:ws @connected-uids)
-                                   object-id (set/difference (set (map :object/id previous))
-                                                             (set (map :object/id current)))]
-
-                             (chsk-send! (first (:ws @connected-uids)) [:state/tombstone object-id])))
-                         (recur))
+                             (println :send-tombstone object-id)
+                               (chsk-send! (first (:ws @connected-uids)) [:state/tombstone object-id])))
+                         (recur objects))
                        (catch InterruptedException e
                          (println e))))))
     (.start)))

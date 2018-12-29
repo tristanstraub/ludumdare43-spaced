@@ -257,7 +257,8 @@
          (swap! state assoc :objects {})
 
          [:chsk/recv [:state/tombstone object-id]]
-         (swap! state update :objects dissoc object-id)
+         (do (println :tombstone object-id)
+             (swap! state update :objects dissoc object-id))
 
          _ nil))
 

@@ -139,7 +139,7 @@
 
                                      (doseq [object (:objects state)
                                              :let [object-key (position-to-key (:object/position object))]]
-;;                                       (println timestamp (.taskId @context) (select-keys object [:object/id :object/position :object/role :object/inactive?]))
+                                       ;;                                       (println timestamp (.taskId @context) (select-keys object [:object/id :object/position :object/role :object/inactive?]))
                                        (doseq [position (conj (system-neighbours (:object/position object))
                                                               object-key)]
                                          ;;                                       (println position object-key)
@@ -150,8 +150,18 @@
                                                          (assoc object :object/inactive? true))
                                                        (assoc :timestamp timestamp)))))
 
-                                     (.putAll @systems (for [pos positions]
-                                                         (KeyValue. pos timestamp))))))
+                                     (try
+                                       (doseq [object (:tombstones state)]
+                                         (.forward @context
+                                                   (position-to-key (:object/position object))
+                                                   (assoc object :object/inactive? true :object/tombstone? true)))
+                                       (catch Exception e
+                                         (println "Error while forwarding tombstones" e)))
+
+                                     (when-let [data (seq (for [pos positions]
+                                                            (KeyValue. pos timestamp)))]
+                                       
+                                       (.putAll @systems data)))))
 
                            (.commit @context)))))
           (close [this])
@@ -162,7 +172,7 @@
             ;;            (println :object/id (:object/id v))
             (swap! robjects
                    (fn [robjects]
-;;                     (println :v v)
+                     ;;                     (println :v v)
                      (if (or (not (get robjects (:object/id v)))
                              (not (:object/inactive? v)))
 
@@ -269,9 +279,9 @@
 (comment
   (let [t (topology)
         id (app-id!)]
-    (def s1 (streams t id {"state.dir" "/tmp/kafka-streams/test-1"}))
-    (def s2 (streams t id {"state.dir" "/tmp/kafka-streams/test-2"}))
-    (def s3 (streams t id {"state.dir" "/tmp/kafka-streams/test-3"})))
+    (def s1 (streams t id {"state.dir" "kafka-streams/test-1"}))
+    (def s2 (streams t id {"state.dir" "kafka-streams/test-2"}))
+    (def s3 (streams t id {"state.dir" "kafka-streams/test-3"})))
 
   (do
     (.start s1)
@@ -340,4 +350,15 @@
 
 (defn objects
   [c]
-  (remove :object/inactive? (map #(.value %) (iterator-seq (.iterator (.poll c 100))))))
+  (->> (iterator-seq (.iterator (.poll c 1000)))
+       (map #(.value %))
+       (remove #(and (:object/inactive? %)
+                     (not (:object/tombstone? %))))
+;;       (filter #(= [0 0] (position-to-key (:object/position %))))
+       (group-by :object/id)
+       (map (fn [[id objects]]
+              (let [tombstones (filter :object/tombstone? objects)]
+                (if (seq tombstones)
+                  (first tombstones)
+                  (first (sort-by :timestamp > objects))))))))
+

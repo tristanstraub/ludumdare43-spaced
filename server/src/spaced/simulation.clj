@@ -357,10 +357,12 @@
 
 (defn remove-object
   [state object]
-  (update state :objects
-          (fn [objects]
-            (doall (remove #(= (:object/id object) (:object/id %))
-                           objects)))))
+  (-> state
+      (update :objects
+              (fn [objects]
+                (doall (remove #(= (:object/id object) (:object/id %))
+                               objects))))
+      (update :tombstones conj object)))
 
 (defn replace-objects
   [state targets]
@@ -437,20 +439,20 @@
 
 (defn test-objects
   []
-  [(object! {:object/position [10100 10000]
-             :object/role     :planet})
-   (object! {:player/id 1
-             :object/position [6000 10000]
-             :transport/range 2000
-             :mining/range    50
-             :object/role     :mining-scout
-             :shooting/range  1000
-             :cargo/capacity  1000
-             :mining/speed    1})
-   #_(object! {:player/id 1
-             :object/position [15100 10000]
-             :object/role     :freighter
-             :collect/range   50})])
+  `[~(object! {:object/position [10100 10000]
+               :object/role     :planet})
+    ~@(repeatedly 4000 #(object! {:player/id 1
+                                  :object/position [(rand-int 6000) (rand-int 10000)]
+                                  :transport/range 2000
+                                  :mining/range    50
+                                  :object/role     :mining-scout
+                                  :shooting/range  1000
+                                  :cargo/capacity  1000
+                                  :mining/speed    1}))
+    ~(object! {:player/id 1
+               :object/position [17500 10000]
+               :object/role     :freighter
+               :collect/range   50})])
 
 (defn initial-objects
   []
