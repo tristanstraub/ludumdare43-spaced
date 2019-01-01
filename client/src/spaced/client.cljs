@@ -26,8 +26,8 @@
 (defmethod impi/update-prop! :pixi.object/button-mode? [^js/PIXI.DisplayObject object _ _ button-mode?]
   (set! (.-buttonMode object) button-mode?))
 
-(defmethod impi/update-prop! :pixi.object/zorder [^js/PIXI.DisplayObject object _ _ z-order]
-  (set! (.-zOrder object) z-order))
+
+
 
 (let [{:keys [chsk ch-recv send-fn state]}
       (sente/make-channel-socket! "/chsk" ; Note the same path as before
@@ -48,9 +48,9 @@
 (defonce stars
   (for [i (range 3000)]
     {:pixi.shape/type     :pixi.shape.type/rectangle
-     :pixi.shape/position [(rand-int 200000)
-                           (rand-int 200000)]
-     :pixi.shape/size     [40 40]
+     :pixi.shape/position [(rand-int 2000)
+                           (rand-int 2000)]
+     :pixi.shape/size     [1 1]
      :pixi.shape/fill     {:pixi.fill/color 0xffffff
                            :pixi.fill/alpha 1}}))
 
@@ -60,9 +60,9 @@
                               (:height app-state)]
         {:keys [state/drag state/scroll]} app-state]
 
-    (println :planets (count (filter (fn [[_ object]] (get (:role/tags (:role object)) :planet))
-                                     (:objects app-state))))
-    
+    ;; (println :planets (count (filter (fn [[_ object]] (get (:role/tags (:role object)) :planet))
+    ;;                                  (:objects app-state))))
+
     (impi/mount stage-id
                 {:pixi/renderer {:pixi.renderer/size [w h]
                                  :pixi.renderer/background-color 0x000000}
@@ -95,67 +95,97 @@
                                                   (let [{:keys [state/drag]} app-state]
                                                     (swap! drag assoc :dragging? false)))}
 
-                 :pixi/stage    {:impi/key                   :stage
-                                 :pixi.object/type           :pixi.object.type/container
-                                 :pixi.object/position       [(get @drag :x 0)
-                                                              (get @drag :y 0)]
-
-                                 :pixi.object/scale          [(get @drag :scale-x 1)
-                                                              (get @drag :scale-y 1)]
-
-                                 :pixi.object/interactive?   true
-                                 :pixi.object/contains-point (constantly true)
-                                 :pixi.event/pointer-down    [:pointer-down]
-                                 :pixi.event/pointer-up      [:pointer-up]
-                                 :pixi.event/pointer-move    [:pointer-move]
-
+                 :pixi/stage    {:impi/key :background
+                                 :pixi.object/type :pixi.object.type/container
                                  :pixi.container/children
-                                 [ ;; {:impi/key             :stars
-                                   ;; :pixi.object/type     :pixi.object.type/graphics
-                                   ;; :pixi.graphics/shapes stars}
+                                 [{:impi/key             :stars
+                                   :pixi.object/type     :pixi.object.type/graphics
+                                   :pixi.graphics/shapes stars}
+                                  {:impi/key                      :stage
+                                   :pixi.object/type              :pixi.object.type/container
+                                   :pixi.object/position          [(get @drag :x 0)
+                                                                   (get @drag :y 0)]
 
-                                  {:impi/key                   :gfx
-                                   :pixi.object/type           :pixi.object.type/graphics
-                                   :pixi.graphics/shapes
-                                   (concat
+                                   :pixi.object/scale             [(get @drag :scale-x 1)
+                                                                   (get @drag :scale-y 1)]
 
+                                   :pixi.object/interactive?      true
+                                   :pixi.object/contains-point    (constantly true)
+                                   :pixi.event/pointer-down       [:pointer-down]
+                                   :pixi.event/pointer-up         [:pointer-up]
+                                   :pixi.event/pointer-move       [:pointer-move]
+                                   :pixi.container/children
 
-                                    (for [[_ object] (:objects app-state)]
-                                      (cond (get (:role/tags (:role object)) :planet)
-                                            {:pixi.shape/type     :pixi.shape.type/circle
-                                             :pixi.shape/position (:object/position object)
-                                             :pixi.circle/radius     100 #_3000
-                                             :pixi.shape/fill     {:pixi.fill/color (brighten 0x770000)
-                                                                   :pixi.fill/alpha 1}
-                                             :pixi.object/zorder  -100}
+                                   `[
+                                     ~@(for [[_ object] (:objects app-state)]
+                                         {:impi/key (str "object-container-" (:object/id object))
+                                          :pixi.object/type :pixi.object.type/container
 
-                                            (get (:role/tags (:role object)) :freighter)
-                                            {:pixi.shape/type     :pixi.shape.type/rectangle
-                                             :pixi.shape/position (:object/position object)
-                                             :pixi.shape/size     [80 320]
-                                             :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
-                                                                                      1 (brighten 0x004499)
-                                                                                      2 (brighten 0x774499))
-                                                                   :pixi.fill/alpha 1}}
+                                          :pixi.object/position (:object/position object)
+                                          
+                                          
+                                          
+                                          
+                                          :pixi.container/children
+                                          
+                                          [{:impi/key                     (str "object-" (:object/id object))
+                                            :pixi.object/type             :pixi.object.type/graphics
+                                            
+                                            :pixi.graphics/shapes
+                                            (cond (:object/parts object)
+                                                  (for [[y row] (map-indexed vector (:object/parts object))
+                                                        [x col] (map-indexed vector row)
+                                                        
+                                                        ]
+                                                    
+                                                    {:pixi.shape/type     :pixi.shape.type/rectangle
+                                                     :pixi.shape/position [(* 80 x) (* 80 y)]
+                                                     :pixi.shape/size     [80 80]
+                                                     :pixi.shape/fill     {:pixi.fill/color (if-not col
+                                                                                              0x000000
+                                                                                              (case (:player/id object)
+                                                                                                1 (brighten 0x004499)
+                                                                                                2 (brighten 0x774499)))
+                                                                           :pixi.fill/alpha 1}})
+                                                  
+                                                  (get (:role/tags (:role object)) :planet)
+                                                  [{:pixi.shape/type     :pixi.shape.type/circle
+                                                    ;;      :pixi.shape/position (:object/position object)
+                                                    :pixi.circle/radius     1000 #_3000
+                                                    :pixi.shape/fill     {:pixi.fill/color (brighten 0x770000)
+                                                                          :pixi.fill/alpha 1}}]
 
-                                            :else
-                                            {:pixi.shape/type     :pixi.shape.type/rectangle
-                                             :pixi.shape/position (:object/position object) 
-                                             :pixi.shape/size     [80 80]
-                                             :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
-                                                                                      1 (brighten 0x004433)
-                                                                                      2 (brighten 0x774433)
-                                                                                      0x000000)
-                                                                   :pixi.fill/alpha 1}
-                                             :pixi.object/zorder 100}))
-                                    (for [[_ object] (:objects app-state)
-                                          :when      (get-in object [:object/behaviours :behaviour/shoot])]
-                                      {:pixi.shape/type     :pixi.shape.type/circle
-                                       :pixi.shape/position (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
-                                       
-                                       :pixi.circle/radius     100
-                                       :pixi.shape/fill     {:pixi.fill/color 0x777777
-                                                             :pixi.fill/alpha 1}}))}]}}
+                                                  (get (:role/tags (:role object)) :freighter)
+                                                  [{:pixi.shape/type     :pixi.shape.type/rectangle
+                                                    ;;    :pixi.shape/position (:object/position object)
+                                                    :pixi.shape/size     [80 320]
+                                                    :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
+                                                                                             1 (brighten 0x004499)
+                                                                                             2 (brighten 0x774499))
+                                                                          :pixi.fill/alpha 1}}]
+
+                                                  :else
+                                                  [{:pixi.shape/type     :pixi.shape.type/rectangle
+                                                    ;;  :pixi.shape/position (:object/position object) 
+                                                    :pixi.shape/size     [80 80]
+                                                    :pixi.shape/fill     {:pixi.fill/color (case (:player/id object)
+                                                                                             1 (brighten 0x004433)
+                                                                                             2 (brighten 0x774433)
+                                                                                             0x000000)
+                                                                          :pixi.fill/alpha 1}
+                                                    :pixi.object/zorder 100}])}]})
+                                     ~@(for [[_ object] (:objects app-state)
+                                             :when      (get-in object [:object/behaviours :behaviour/shoot])]
+                                         {:impi/key                     (str "shoot-" (:object/id object))
+                                          :pixi.object/type             :pixi.object.type/graphics
+                                            
+                                          :pixi.graphics/shapes
+                                          [{:pixi.shape/type     :pixi.shape.type/circle
+                                             :pixi.shape/position (get-in object [:object/behaviours :behaviour/shoot :behaviour/shoot.target :object/position])
+                                             
+                                             :pixi.circle/radius     100
+                                             :pixi.shape/fill     {:pixi.fill/color 0x777777
+                                                                   :pixi.fill/alpha 1}}]})]}]}}
                 el)))
 
 (def impi
@@ -318,3 +348,7 @@
 
     (r/mount (root state)
              (dom/getElement "app"))))
+
+;; for reloading onchanges
+(reset! state @state)
+

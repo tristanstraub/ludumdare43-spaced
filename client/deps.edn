@@ -1,5 +1,7 @@
 {:paths   ["src" "target" "resources"]
- :deps    {com.taoensso/sente     {:mvn/version "1.13.1"}
+ :deps    {org.clojure/clojurescript {:mvn/version "1.10.238"}
+
+           com.taoensso/sente     {:mvn/version "1.13.1"}
            org.clojure/core.async {:mvn/version "0.4.490"}
            org.clojure/core.match {:mvn/version "0.3.0-alpha5"}
            

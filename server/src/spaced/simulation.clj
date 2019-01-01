@@ -439,58 +439,79 @@
 
 (defn test-objects
   []
-  `[~(object! {:object/position [10100 10000]
-               :object/role     :planet})
-    ~@(repeatedly 4000 #(object! {:player/id 1
-                                  :object/position [(rand-int 6000) (rand-int 10000)]
-                                  :transport/range 2000
-                                  :mining/range    50
-                                  :object/role     :mining-scout
-                                  :shooting/range  1000
-                                  :cargo/capacity  1000
-                                  :mining/speed    1}))
-    ~(object! {:player/id 1
-               :object/position [17500 10000]
-               :object/role     :freighter
-               :collect/range   50})])
+  (let [spread 100000]
+    (reset! ids 0)
+    `[ ~(object! {:object/position [10100 10000]
+                 :object/role     :planet})
+      ~@(repeatedly 100 #(object! {:player/id 1
+                                   :object/position [(rand-int spread) (rand-int spread)]
+                                   #_                               [5000 5000]
+                                   :transport/range 2000
+                                   :mining/range    50
+                                   :object/role     :mining-scout
+                                   :shooting/range  1000
+                                   :cargo/capacity  1000
+                                   :mining/speed    1
+
+                                   :object/parts (concat [[{:part/type :hull}
+                                                           {:part/type :hull}
+                                                           {:part/type :hull}]]
+                                                         
+                                                         (repeat 30 [{:part/type :hull}
+                                                                     nil
+                                                                     {:part/type :hull}])
+
+                                                         [[{:part/type :hull}
+                                                           {:part/type :hull}
+                                                           {:part/type :hull}]])
+                                   
+
+                                   }))
+      ;; ~(object! {:player/id 1
+      ;;            :object/position [17500 10000]
+      ;;            :object/role     :freighter
+      ;;            :collect/range   50})
+      ]))
 
 (defn initial-objects
   []
-  (concat (repeatedly 5 #(object! {:object/position [(rand-int 50000)
-                                                     (rand-int 50000)]
-                                   :object/role     :planet}))
+  (let [miners 100
+        spread 100000]
+    (concat (repeatedly 5 #(object! {:object/position [(rand-int spread)
+                                                       (rand-int spread)]
+                                     :object/role     :planet}))
 
-          (repeatedly 400 #(object! {:player/id 1
-                                     :object/position [(rand-int 50000)
-                                                       (rand-int 50000)]
-                                     :transport/range 2000
-                                     :mining/range    50
-                                     :object/role     :mining-scout
-                                     :shooting/range  1000
-                                     :cargo/capacity  1000
-                                     :mining/speed    1}))
+            (repeatedly miners #(object! {:player/id 1
+                                        :object/position [(rand-int spread)
+                                                          (rand-int spread)]
+                                        :transport/range 2000
+                                        :mining/range    50
+                                        :object/role     :mining-scout
+                                        :shooting/range  1000
+                                        :cargo/capacity  1000
+                                        :mining/speed    1}))
 
-          (repeatedly 10 #(object! {:player/id 1
-                                    :object/position [(rand-int 50000)
-                                                      (rand-int 50000)]
-                                    :object/role     :freighter
-                                    :collect/range   50}))
+            (repeatedly 10 #(object! {:player/id 1
+                                      :object/position [(rand-int spread)
+                                                        (rand-int spread)]
+                                      :object/role     :freighter
+                                      :collect/range   50}))
 
-          (repeatedly 400 #(object! {:player/id       2
-                                     :object/position [(rand-int 50000)
-                                                       (rand-int 50000)]
-                                     :transport/range 2000
-                                     :mining/range    50
-                                     :shooting/range  1000
-                                     :object/role     :mining-scout
-                                     :cargo/capacity  1000
-                                     :mining/speed    1}))
+            (repeatedly miners #(object! {:player/id       2
+                                        :object/position [(rand-int spread)
+                                                          (rand-int spread)]
+                                        :transport/range 2000
+                                        :mining/range    50
+                                        :shooting/range  1000
+                                        :object/role     :mining-scout
+                                        :cargo/capacity  1000
+                                        :mining/speed    1}))
 
-          (repeatedly 10 #(object! {:player/id 2
-                                    :object/position [(rand-int 50000)
-                                                      (rand-int 50000)]
-                                    :object/role     :freighter
-                                    :collect/range   50}))))
+            (repeatedly 10 #(object! {:player/id 2
+                                      :object/position [(rand-int 100000)
+                                                        (rand-int 100000)]
+                                      :object/role     :freighter
+                                      :collect/range   50})))))
 
 (defn init!
   []
