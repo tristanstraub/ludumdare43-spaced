@@ -1,8 +1,12 @@
 (ns spaced.coordinator
-  (:import org.apache.kafka.clients.consumer.KafkaConsumer
+  (:import java.util.Properties
+           org.apache.kafka.clients.consumer.KafkaConsumer
            [org.apache.kafka.clients.producer KafkaProducer ProducerRecord]
-           [org.apache.kafka.streams KafkaStreams StreamsBuilder]
-           [org.apache.kafka.streams.kstream Aggregator Initializer KeyValueMapper Materialized Transformer TransformerSupplier]))
+           [org.apache.kafka.streams KafkaStreams StreamsBuilder StreamsConfig TopologyTestDriver]
+           [org.apache.kafka.streams.kstream Aggregator Initializer KeyValueMapper Materialized Transformer TransformerSupplier]
+           [org.apache.kafka.streams.processor PunctuationType Punctuator]
+           org.apache.kafka.streams.state.Stores
+           org.apache.kafka.streams.test.ConsumerRecordFactory))
 
 (defn- to-props
   [m]
@@ -124,9 +128,7 @@
   [p topic k v]
   (.send p (ProducerRecord. topic k v)))
 
-(defonce p (KafkaProducer. (to-props {"bootstrap.servers" "localhost:9092"
-                                      "key.serializer" spaced.transit-serdes/transit-serializer
-                                      "value.serializer" spaced.transit-serdes/transit-serializer})))
+
 
 (defn produce!
   [p topic k v]
@@ -135,9 +137,17 @@
 (defonce stream (atom nil))
 (defonce stream2 (atom nil))
 
-(comment (let [t (topology)
+(comment (defonce p (KafkaProducer. (to-props {"bootstrap.servers" "localhost:9092"
+                                               "key.serializer" spaced.transit-serdes/transit-serializer
+                                               "value.serializer" spaced.transit-serdes/transit-serializer})))
+
+         (dotimes [i (count (.partitionsFor p "positions"))]
+           @(.send p (ProducerRecord. "positions" (int i) nil 0)))
+
+
+         (let [t (topology)
                id (app-id!)]
-           (.start (reset! stream (streams t id {"state.dir" "kafka-streams/partitions-4"}))))
+           (.start (reset! stream (streams t id {"state.dir" "kafka-streams/partitions-6"}))))
          (.close @stream)
 
          (let [t (topology)
