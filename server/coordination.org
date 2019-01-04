@@ -1,0 +1,5 @@
+1. worker: receives per partition coordinator watermark. (ready to process frame)
+2. worker: update objects, and send to "objects"
+3. worker: send active coordinate watermark to coordinator.
+4. coordinator: waits for all worker watermarks
+5. coordinator: sends per partition coordinator watermark.
